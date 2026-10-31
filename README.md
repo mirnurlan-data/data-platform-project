@@ -2,20 +2,19 @@
 
 [![Data Platform CI](https://github.com/mirnurlan-data/data-platform-project/actions/workflows/ci.yml/badge.svg)](https://github.com/mirnurlan-data/data-platform-project/actions/workflows/ci.yml)
 
-An educational batch ETL / dimensional warehouse example using Python standard libraries and SQLite. All transactions are **synthetic**, not client data.
+An educational Python + SQLite dimensional warehouse with reproducible synthetic sales, strict batch validation, SQL reporting and **source-to-target reconciliation**.
 
 ## Architecture
-
 ```text
-Synthetic CSV → strict validation → dim_store + dim_product + fact_sales → SQL reports
-                                                              ↳ quality reconciliation
+Synthetic CSV → strict validation → dimension tables + fact_sales → revenue analytics
+                                                        ↳ integrity and revenue quality gates
 ```
 
-Read [system architecture and production trade-offs](docs/architecture.md).
+[Architecture](docs/architecture.md) · [Operations and reliability](docs/OPERATIONS.md) · [Continuous integration](https://github.com/mirnurlan-data/data-platform-project/actions/workflows/ci.yml)
 
-## Quick start
+## Run locally
 
-Requirements: Python 3.10+ (no external packages).
+Python 3.10+; all code uses the Python standard library.
 
 ```bash
 python scripts/generate_sales.py
@@ -24,26 +23,16 @@ python scripts/validate_warehouse.py
 python -m unittest discover -s tests -v
 ```
 
-Generates 500 synthetic sales rows, populates a local demo warehouse, and reconciles count, revenue and referential integrity. The checker writes `output/quality_report.json`; GitHub Actions retains that evidence as an artifact.
+The quality report is written to `output/quality_report.json` (and published as a CI artifact). Automated tests also **inject a corrupted monetary value** into the disposable warehouse and assert that reconciliation rejects it.
 
-## Data and correctness
+## What is actually implemented
+- Deterministic generation of 500 synthetic sales
+- CSV schema, date, integer and quantity validation; duplicate transaction rejection
+- Dimension tables, referential integrity, and star-like sales fact table
+- Revenue calculations using integer cents instead of floating point currency
+- Source-to-target row counts, revenue totals, missing dimension and bad amount checks
+- Negative unit tests verifying bad data is detected
+- Rebuildable local run plus GitHub Actions validation
 
-- ISO date validation; all required fields checked
-- Nonnegative integer cents to prevent floating-point currency drift
-- Positive quantity, duplicate transaction ID detection
-- Dimension foreign keys and duplicate-safe demo rebuild
-- Reconciliation of **independently calculated** source record count and total revenue
-- Repeatable CI unit tests and data-quality gate
-
-## File guide
-
-- `scripts/generate_sales.py`: deterministic synthetic generator
-- `scripts/run_etl.py`: validated CSV batch load
-- `scripts/validate_warehouse.py`: source-to-target reconciliation
-- `sql/schema.sql`: fact and dimension schema
-- `sql/daily_revenue.sql`: analytical aggregates
-- `sql/data_quality.sql`: integrity check
-- `docs/architecture.md`: architecture and production considerations
-- `tests/`: correctness tests
-
-**Limitations:** SQLite is deliberately used for local reproducibility; this project does not claim a production streaming system, high availability, or benchmarked throughput. The CLI recreates only the disposable `output/warehouse.sqlite3` file; don't store user data there.
+## Limitations
+This is a **disposable single-node learning project**, not evidence of actual enterprise-scale production reliability, Airflow scheduling, incremental ingestion, or cloud deployment. The example CLI deletes only the generated `output/warehouse.sqlite3` file and recreates it. Do not put real user data in that path.
