@@ -1,42 +1,49 @@
 # End-to-End Data Platform — Synthetic Sales Analytics
 
-An **educational Python + SQLite ETL and dimensional-modeling example**, designed to show how raw sales records become validated, analytics-ready fact and dimension tables.
+[![Data Platform CI](https://github.com/mirnurlan-data/data-platform-project/actions/workflows/ci.yml/badge.svg)](https://github.com/mirnurlan-data/data-platform-project/actions/workflows/ci.yml)
+
+An educational batch ETL / dimensional warehouse example using Python standard libraries and SQLite. All transactions are **synthetic**, not client data.
 
 ## Architecture
 
 ```text
-Synthetic CSV → validation → SQLite staging → dimension tables → fact_sales → daily revenue SQL
+Synthetic CSV → strict validation → dim_store + dim_product + fact_sales → SQL reports
+                                                              ↳ quality reconciliation
 ```
 
-No external infrastructure is required for the baseline workflow. This repository is not a claim of production deployment, distributed orchestration, or cloud-scale throughput.
+Read [system architecture and production trade-offs](docs/architecture.md).
 
 ## Quick start
 
-Python 3.10+ (standard library only):
+Requirements: Python 3.10+ (no external packages).
 
 ```bash
 python scripts/generate_sales.py
 python scripts/run_etl.py
+python scripts/validate_warehouse.py
 python -m unittest discover -s tests -v
 ```
 
-This generates 500 synthetic sales records, imports them into a disposable `output/warehouse.sqlite3`, builds dimensions and a sales fact table, and prints store-level revenue. Re-running the script **rebuilds** the disposable demo warehouse from the CSV; it does not append duplicate facts.
+Generates 500 synthetic sales rows, populates a local demo warehouse, and reconciles count, revenue and referential integrity. The checker writes `output/quality_report.json`; GitHub Actions retains that evidence as an artifact.
 
-## Repository map
+## Data and correctness
 
-- [scripts/generate_sales.py](scripts/generate_sales.py): deterministic synthetic sales
-- [scripts/run_etl.py](scripts/run_etl.py): validated CSV-to-SQLite batch ingest
-- [sql/schema.sql](sql/schema.sql): dimension and fact schema
-- [sql/daily_revenue.sql](sql/daily_revenue.sql): analytics query
-- [tests/test_pipeline.py](tests/test_pipeline.py): checks reproducibility, validation, and correctness
+- ISO date validation; all required fields checked
+- Nonnegative integer cents to prevent floating-point currency drift
+- Positive quantity, duplicate transaction ID detection
+- Dimension foreign keys and duplicate-safe demo rebuild
+- Reconciliation of **independently calculated** source record count and total revenue
+- Repeatable CI unit tests and data-quality gate
 
-## Design decisions
+## File guide
 
-- This demonstration uses SQLite for portability, not as a substitute for PostgreSQL or a distributed warehouse.
-- Fact table stores integer cents to avoid floating-point errors in currency aggregation.
-- Primary and foreign key constraints enforce key integrity.
-- Rows are validated before insertion. Invalid input aborts the demo instead of silently dropping records.
-- Separate synthetic test data only. No real business or client data.
-- A production implementation would add orchestration, metrics, incremental loads, secrets management, and automated data-quality checks.
+- `scripts/generate_sales.py`: deterministic synthetic generator
+- `scripts/run_etl.py`: validated CSV batch load
+- `scripts/validate_warehouse.py`: source-to-target reconciliation
+- `sql/schema.sql`: fact and dimension schema
+- `sql/daily_revenue.sql`: analytical aggregates
+- `sql/data_quality.sql`: integrity check
+- `docs/architecture.md`: architecture and production considerations
+- `tests/`: correctness tests
 
-**Measurement policy:** No fabricated performance, accuracy, latency, or business-impact percentages.
+**Limitations:** SQLite is deliberately used for local reproducibility; this project does not claim a production streaming system, high availability, or benchmarked throughput. The CLI recreates only the disposable `output/warehouse.sqlite3` file; don't store user data there.
