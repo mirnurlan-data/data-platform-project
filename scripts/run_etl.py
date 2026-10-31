@@ -1,4 +1,7 @@
-"""Validate synthetic CSV and build a disposable analytical SQLite database."""
+"""Validated synthetic CSV -> SQLite dimensional model.
+
+Safety: NEVER overwrites an existing destination. Creates database exclusively.
+"""
 import csv
 from datetime import date
 from pathlib import Path
@@ -9,7 +12,7 @@ FIELDS = ["transaction_id", "sold_date", "store_id", "product_id", "quantity", "
 
 
 def parse_row(row):
-    if set(row) != set(FIELDS) or any(row[k] in (None, "") for k in FIELDS):
+    if set(row) != set(FIELDS) or any(not isinstance(row[k], str) or not row[k].strip() for k in FIELDS):
         raise ValueError("Missing, unexpected or empty CSV field")
     try:
         date.fromisoformat(row["sold_date"])
@@ -31,16 +34,26 @@ def run(csv_path: Path, db_path: Path):
     if len({row[0] for row in rows}) != len(rows):
         raise ValueError("Duplicate transaction_id in source")
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    # Rebuild a disposable demo DB; do not point this at existing user data.
-    if db_path.exists():
-        raise FileExistsError("Refusing to overwrite an existing database. Delete the disposable output file explicitly.")
-    with sqlite3.connect(db_path) as conn:
-        conn.executescript((ROOT / "sql" / "schema.sql").read_text(encoding="utf-8"))
-        conn.executemany("INSERT INTO dim_store VALUES (?)", sorted({(r[2],) for r in rows}))
-        conn.executemany("INSERT INTO dim_product VALUES (?)", sorted({(r[3],) for r in rows}))
-        conn.executemany("INSERT INTO fact_sales VALUES (?, ?, ?, ?, ?, ?)", rows)
-        revenue = conn.execute((ROOT / "sql" / "daily_revenue.sql").read_text(encoding="utf-8")).fetchall()
-    return len(rows), revenue
+
+    # Exclusive create prevents silently replacing any previously generated or
+    # user-supplied data, even on subsequent runs or concurrent process starts.
+    with db_path.open("xb"):
+        pass
+    try:
+        with sqlite3.connect(db_path) as conn:
+            conn.execute("PRAGMA foreign_keys = ON")
+            conn.executescript((ROOT / "sql" / "schema.sql").read_text(encoding="utf-8"))
+            conn.executemany("INSERT INTO dim_store VALUES (?)", sorted({(r[2],) for r in rows}))
+            conn.executemany("INSERT INTO dim_product VALUES (?)", sorted({(r[3],) for r in rows}))
+            conn.executemany("INSERT INTO fact_sales VALUES (?, ?, ?, ?, ?, ?)", rows)
+            revenue = conn.execute(
+                (ROOT / "sql" / "daily_revenue.sql").read_text(encoding="utf-8")
+            ).fetchall()
+        return len(rows), revenue
+    except Exception:
+        # The destination was created exclusively in this invocation.
+        db_path.unlink(missing_ok=True)
+        raise
 
 
 if __name__ == "__main__":
@@ -49,7 +62,10 @@ if __name__ == "__main__":
     if not csv_path.exists():
         raise SystemExit("Run python scripts/generate_sales.py first")
     if db_path.exists():
-        db_path.unlink()  # Known disposable file in output/ only.
+        raise SystemExit(
+            "Refusing to replace existing database. If you intend to reset the disposable "
+            "demo, explicitly delete output/warehouse.sqlite3 and run again."
+        )
     count, report = run(csv_path, db_path)
     print(f"Loaded {count} synthetic transactions into {db_path}")
     print("date,store,transactions,units,revenue_cents")

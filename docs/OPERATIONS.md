@@ -2,21 +2,21 @@
 
 This repository is a **synthetic batch ETL lab**. It does not implement a production control plane, remote deployment, secrets manager, or scheduler.
 
-## Replay and idempotency
-The command `python scripts/run_etl.py` intentionally recreates only `output/warehouse.sqlite3`, and the import's core `run()` refuses overwriting an existing file. This protects other database files when the Python function is reused. Deterministic transaction IDs and a `PRIMARY KEY` prevent duplicate facts within a batch. This is **not** an incremental upsert system; rerun the entire disposable demonstration after generating the source file.
+## Replay and overwrite safety
+The ETL function exclusively creates its SQLite output and **refuses to overwrite an existing file**. Repeat a full demo only after deliberately deleting the disposable `output/warehouse.sqlite3` file yourself. The CLI will not silently delete it. Deterministic transaction IDs and a `PRIMARY KEY` prevent duplicate facts within a batch. This is **not** an incremental upsert system. Never store personal or client data in the disposable output folder.
 
 ## Quality gate
-`python scripts/validate_warehouse.py` reconciles row counts, revenue in integer cents, dimension foreign keys, and invalid monetary values. The CLI emits `output/quality_report.json`. CI includes a deliberate corruption test verifying that an altered fact is caught. If data quality fails, do not publish reports.
+`python scripts/validate_warehouse.py` reconciles row counts, revenue in integer cents, dimension foreign keys, and invalid monetary values. The CLI emits `output/quality_report.json`. CI tests rejection of bad dates, blank identifiers, duplicate transaction IDs, accidental overwrites and intentional corruption of an existing warehouse.
 
 ## Security
-Use only synthetic data in this repository. No real customer information or credentials. The scripts do not require secrets or outbound connections. For a real service, implement scoped database accounts, secret rotation, encrypted transport, audit records, backup validation, and retention policies.
+Only synthetic data; no secrets or outbound connections. Production would require restricted database roles, secret rotation, encrypted transport, audit records, backup validation, retention policies and an incident response plan.
 
 ## Observability and future production design
-A production orchestration workflow should emit structured JSON logs, batch/job IDs, source row counts, failed row counts, freshness age, job duration and reconciliation status. Set alerts for missing data, ingestion lag and reconciliation failures. Add retry/backoff with quarantine for invalid rows, durable staging, lineage, and rollback plans. None of those behaviors are claimed to be implemented here.
+A production workflow should emit structured logs, batch/job IDs, source row counts, failed row counts, freshness age, job duration and reconciliation status. Set alerts for missing data, ingestion lag and reconciliation failures. Add retry/backoff, quarantine, durable staging, lineage, and rollback plans. These are proposed controls, **not** implemented production features.
 
 ## Release checklist
-1. Confirm tests are green on the exact commit.
-2. Run a synthetic sample and read the JSON quality report.
-3. Verify CSV schema and fact/dimension foreign keys.
-4. Check that reprocessing cannot overwrite non-disposable data.
-5. Document any schema migration and rollback before production use.
+1. Confirm CI on the exact commit is green.
+2. Run the synthetic demo and inspect the JSON quality report.
+3. Check fact/dimension foreign keys and source schema.
+4. Ensure no real data is written to the demo output.
+5. Document schema migrations and rollback for any future production work.
