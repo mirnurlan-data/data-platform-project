@@ -39,6 +39,31 @@ class QualityTests(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 quality.validate(source, db)
 
+    def test_detects_offsetting_changes_that_preserve_revenue(self):
+        with tempfile.TemporaryDirectory() as temp:
+            p = Path(temp)
+            source, db = p / "sales.csv", p / "store.sqlite3"
+            generator.generate(source, 25)
+            pipeline.run(source, db)
+            with sqlite3.connect(db) as conn:
+                first = conn.execute(
+                    "SELECT unit_price_cents FROM fact_sales WHERE transaction_id = 'T000001'"
+                ).fetchone()[0]
+                fifth = conn.execute(
+                    "SELECT unit_price_cents FROM fact_sales WHERE transaction_id = 'T000005'"
+                ).fetchone()[0]
+                # Both sales have quantity=2; swapping their prices leaves revenue unchanged.
+                conn.execute(
+                    "UPDATE fact_sales SET unit_price_cents = ? WHERE transaction_id = 'T000001'",
+                    (fifth,),
+                )
+                conn.execute(
+                    "UPDATE fact_sales SET unit_price_cents = ? WHERE transaction_id = 'T000005'",
+                    (first,),
+                )
+            with self.assertRaises(AssertionError):
+                quality.validate(source, db)
+
 
 if __name__ == "__main__":
     unittest.main()
