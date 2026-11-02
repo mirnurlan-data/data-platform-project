@@ -1,0 +1,13 @@
+# Deliberately requires credentials from environment; no secrets in source control.
+cloud_sales_platform:
+  target: ci
+  outputs:
+    ci:
+      type: postgres
+      host: "{{ env_var('DBT_PG_HOST', '127.0.0.1') }}"
+      port: "{{ env_var('DBT_PG_PORT', '5432') | int }}"
+      user: "{{ env_var('DBT_PG_USER', 'portfolio') }}"
+      password: "{{ env_var('DBT_PG_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_PG_DB', 'portfolio') }}"
+      schema: analytics
+      threads: 1

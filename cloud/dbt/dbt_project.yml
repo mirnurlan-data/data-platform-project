@@ -1,0 +1,13 @@
+name: cloud_sales_platform
+version: "1.0.0"
+config-version: 2
+profile: cloud_sales_platform
+model-paths: ["models"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+models:
+  cloud_sales_platform:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

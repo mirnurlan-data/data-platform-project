@@ -1,0 +1,27 @@
+version: 2
+models:
+  - name: stg_sales
+    description: "Validated transactions from the PostgreSQL landing table."
+    columns:
+      - name: transaction_id
+        data_tests:
+          - unique
+          - not_null
+      - name: sold_date
+        data_tests:
+          - not_null
+      - name: revenue_cents
+        data_tests:
+          - not_null
+  - name: fct_daily_store_revenue
+    description: "Daily per-store metrics computed from the staging model."
+    columns:
+      - name: sold_date
+        data_tests:
+          - not_null
+      - name: store_id
+        data_tests:
+          - not_null
+      - name: revenue_cents
+        data_tests:
+          - not_null

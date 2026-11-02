@@ -4,6 +4,12 @@
 
 A portable, educational Python + SQLite data warehouse with synthetic sales, strict validation, dimensional models, SQL reporting and source-to-target quality reconciliation.
 
+## Cloud extension — AWS-oriented production-inspired data platform
+
+**New:** [S3 → PostgreSQL → dbt with an Airflow orchestration blueprint](cloud/README.md) · [Cloud CI](https://github.com/mirnurlan-data/data-platform-project/actions/workflows/cloud-ci.yml)
+
+This separate `cloud/` example adds a strict Python ingestion contract, content-addressed S3 object handling with checksums, transaction-safe idempotent PostgreSQL landing, dbt models and checks, an Airflow DAG example, and Terraform for a private encrypted S3 bucket. GitHub Actions tests PostgreSQL + dbt in a disposable local CI environment and uses fake S3 for contract tests; **no AWS resources are deployed or billed**. It is not proof of production availability or scale.
+
 ## Architecture
 
 ```text
@@ -43,4 +49,4 @@ The pipeline generates 500 **synthetic** sales and writes to `output/warehouse.s
 - GitHub Actions publishes a validation report as an artifact
 
 ## Limitations
-Single-node SQLite and 500-row generated input are intentionally small for reproducibility. No claims of cloud production deployment, scheduler orchestration, concurrency capacity, throughput SLOs, or client systems.
+Single-node SQLite and 500-row generated input are intentionally small for reproducibility. The base SQLite lab does not model cloud deployment, scheduling or scale; see the separate cloud/ reference for an un-deployed Airflow/Terraform architecture and PostgreSQL/dbt integration tests. Neither lab claims production concurrency, throughput SLOs, or use of client systems.
