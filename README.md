@@ -28,6 +28,13 @@ The pipeline generates 500 **synthetic** sales and writes to `output/warehouse.s
 
 **Important:** the loader deliberately refuses to overwrite existing database files. To rerun, explicitly delete only the disposable `output/warehouse.sqlite3` created by the demo, after verifying it does not contain your data. Do not use this repo as a production migration tool.
 
+## Evidence that survives a technical review
+
+- CI runs unit tests, builds the synthetic warehouse and publishes `output/quality_report.json`.
+- Validation compares the **full multiset of source and destination records**, including identifiers and amounts; matching aggregate totals alone cannot hide offsetting changes.
+- Negative tests verify that existing database files are preserved and corrupted outputs are rejected.
+- This is correctness evidence for a local teaching sample, not a cloud-scale deployment or throughput benchmark.
+
 ## Test coverage
 - Invalid dates, blank identifiers, negative quantities, duplicate transaction IDs
 - Existing database preserved byte-for-byte; no implicit overwrite
